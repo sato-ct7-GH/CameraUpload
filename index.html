@@ -280,7 +280,6 @@
 
   <p id="meta"></p>
   <div id="status"></div>
-  <div id="drive-link"><a id="drive-link-a" href="#" target="_blank">📂 Driveで開く</a></div>
 
   <!-- コントロール: 初期 -->
   <div id="ctrl-start">
@@ -542,23 +541,16 @@ function doUpload(gasUrl, blob) {
   reader.onload = function() {
     var base64 = reader.result; // "data:image/jpeg;base64,..."
 
+    // GASはCORSヘッダーを返さないためno-corsで送信。
+    // レスポンスは読めないが、送信自体は成功する。
     fetch(gasUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'text/plain' }, // GASのCORS対策でtext/plainを使用
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({ image: base64, fileName: fileName })
     })
-    .then(function(res) { return res.json(); })
-    .then(function(data) {
-      if (data.success) {
-        setStatus('「' + data.fileName + '」をDriveに保存しました！', 'success');
-        if (data.fileUrl) {
-          var link = document.getElementById('drive-link');
-          document.getElementById('drive-link-a').href = data.fileUrl;
-          link.style.display = 'block';
-        }
-      } else {
-        setStatus('送信失敗: ' + (data.error || '不明なエラー'), 'error');
-      }
+    .then(function() {
+      setStatus('「' + fileName + '」をDriveに送信しました！', 'success');
     })
     .catch(function(err) {
       setStatus('通信エラー: ' + err.message + '　GASのURLを確認してください。', 'error');
