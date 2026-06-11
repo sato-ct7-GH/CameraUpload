@@ -274,7 +274,7 @@
     <canvas id="canvas-preview"></canvas>
     <div id="file-fallback">
       <p>カメラが使用できません。<br>ファイルを選択してアップロードできます。</p>
-      <input type="file" id="file-input" accept="image/*" capture="environment">
+      <input type="file" id="file-input" accept="image/*">
     </div>
   </div>
 
@@ -409,8 +409,10 @@ function startCamera() {
 function showFileFallback(msg) {
   setStatus(msg, 'error');
   document.getElementById('placeholder').style.display = 'none';
+  var fi = document.getElementById('file-input');
+  fi.setAttribute('capture', 'environment'); // フォールバック時のみcaptureを有効化
   document.getElementById('file-fallback').style.display = 'flex';
-  document.getElementById('file-input').addEventListener('change', onFileSelected, { once: true });
+  fi.addEventListener('change', onFileSelected, { once: true });
   showCtrl('start');
 }
 
@@ -486,6 +488,7 @@ function retake() {
   showCtrl('start');
   // ファイル入力をリセット
   var fi = document.getElementById('file-input');
+  fi.removeAttribute('capture'); // capture属性を除去してgetUserMediaの干渉を防ぐ
   fi.value = '';
   fi.addEventListener('change', onFileSelected, { once: true });
 }
