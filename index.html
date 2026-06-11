@@ -181,6 +181,39 @@
     padding: 4px 0;
   }
 
+  /* ── トリミングオーバーレイ ── */
+  #crop-overlay {
+    display: none;
+    position: absolute; inset: 0;
+    cursor: crosshair;
+    touch-action: none;
+  }
+  #crop-overlay.active { display: block; }
+  #crop-selection {
+    position: absolute;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 9999px rgba(0,0,0,0.45);
+    pointer-events: none;
+    display: none;
+    box-sizing: border-box;
+  }
+  /* トリミングモード時のカメラエリア */
+  #camera-area.crop-mode { cursor: crosshair; }
+
+  /* ── トリミングボタン行 ── */
+  #ctrl-crop {
+    display: none;
+    gap: 8px;
+    flex-direction: column;
+  }
+  #ctrl-crop.show { display: flex; }
+  #crop-hint {
+    font-size: 12px;
+    color: var(--gray-text);
+    text-align: center;
+    padding: 2px 0;
+  }
+
   /* ── 名前入力欄 ── */
   #name-area {
     display: none;
@@ -285,6 +318,8 @@
     </div>
     <video id="video" autoplay playsinline muted></video>
     <canvas id="canvas-preview"></canvas>
+    <div id="crop-overlay"></div>
+    <div id="crop-selection"></div>
     <div id="file-fallback">
       <p>カメラが使用できません。<br>ファイルを選択してアップロードできます。</p>
       <input type="file" id="file-input" accept="image/*">
@@ -321,10 +356,23 @@
   <!-- コントロール: プレビュー確認 -->
   <div id="ctrl-preview" style="display:none;" class="row">
     <button class="btn btn-secondary" onclick="retake()">撮り直し</button>
+    <button class="btn btn-secondary" id="btn-crop-mode" onclick="startCropMode()">
+      ✂️ トリミング
+    </button>
     <button class="btn btn-primary" id="btn-send" onclick="sendToDrive()">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-      Driveへ送信
+      送信
     </button>
+  </div>
+
+  <!-- コントロール: トリミング中 -->
+  <div id="ctrl-crop">
+    <p id="crop-hint">📐 切り抜きたい範囲をドラッグしてください</p>
+    <div class="row">
+      <button class="btn btn-secondary" onclick="cancelCrop()">キャンセル</button>
+      <button class="btn btn-danger"    onclick="resetCrop()">リセット</button>
+      <button class="btn btn-primary"   id="btn-apply-crop" onclick="applyCrop()" disabled>この範囲で切り抜く</button>
+    </div>
   </div>
 
 </div>
@@ -532,6 +580,158 @@ function showMeta(size) {
   var kb  = Math.round(size / 1024);
   document.getElementById('meta').textContent = '📅 ' + ts + '　📦 ' + kb + ' KB';
   document.getElementById('meta').style.display = 'block';
+}
+
+// =============================================
+// トリミング機能
+// =============================================
+var cropMode    = false;
+var cropStart   = null;
+var cropRect    = null;   // {x,y,w,h} キャンバス座標系
+
+function startCropMode() {
+  cropMode  = true;
+  cropRect  = null;
+  cropStart = null;
+  var overlay = document.getElementById('crop-overlay');
+  var sel     = document.getElementById('crop-selection');
+  overlay.classList.add('active');
+  sel.style.display = 'none';
+  document.getElementById('camera-area').classList.add('crop-mode');
+  document.getElementById('ctrl-preview').style.display = 'none';
+  document.getElementById('name-area').classList.remove('show');
+  document.getElementById('ctrl-crop').classList.add('show');
+  document.getElementById('btn-apply-crop').disabled = true;
+  document.getElementById('crop-hint').textContent = '📐 切り抜きたい範囲をドラッグしてください';
+}
+
+function cancelCrop() {
+  exitCropMode();
+  showCtrl('preview');
+  document.getElementById('name-area').classList.add('show');
+}
+
+function resetCrop() {
+  cropRect  = null;
+  cropStart = null;
+  document.getElementById('crop-selection').style.display = 'none';
+  document.getElementById('btn-apply-crop').disabled = true;
+  document.getElementById('crop-hint').textContent = '📐 切り抜きたい範囲をドラッグしてください';
+}
+
+function exitCropMode() {
+  cropMode = false;
+  document.getElementById('crop-overlay').classList.remove('active');
+  document.getElementById('crop-selection').style.display = 'none';
+  document.getElementById('camera-area').classList.remove('crop-mode');
+  document.getElementById('ctrl-crop').classList.remove('show');
+}
+
+function getEventPos(e, elem) {
+  var rect = elem.getBoundingClientRect();
+  var cx = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+  var cy = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+  // 0〜1に正規化してキャンバス座標に変換
+  var canvas = document.getElementById('canvas-preview');
+  var scaleX = canvas.width  / rect.width;
+  var scaleY = canvas.height / rect.height;
+  return {
+    px: cx, py: cy,             // ピクセル座標（表示上）
+    cx: cx * scaleX,            // キャンバス座標
+    cy: cy * scaleY,
+    scaleX: scaleX, scaleY: scaleY
+  };
+}
+
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+// ── オーバーレイのドラッグイベント ──
+(function setupCropEvents() {
+  var overlay = document.getElementById('crop-overlay');
+  var sel     = document.getElementById('crop-selection');
+
+  function onStart(e) {
+    if (!cropMode) return;
+    e.preventDefault();
+    var pos = getEventPos(e, overlay);
+    cropStart = pos;
+    sel.style.display = 'block';
+    sel.style.left = pos.px + 'px';
+    sel.style.top  = pos.py + 'px';
+    sel.style.width  = '0px';
+    sel.style.height = '0px';
+    document.getElementById('btn-apply-crop').disabled = true;
+  }
+
+  function onMove(e) {
+    if (!cropMode || !cropStart) return;
+    e.preventDefault();
+    var pos  = getEventPos(e, overlay);
+    var area = document.getElementById('camera-area').getBoundingClientRect();
+    var x0 = Math.min(cropStart.px, pos.px);
+    var y0 = Math.min(cropStart.py, pos.py);
+    var w  = Math.abs(pos.px - cropStart.px);
+    var h  = Math.abs(pos.py - cropStart.py);
+    sel.style.left   = x0 + 'px';
+    sel.style.top    = y0 + 'px';
+    sel.style.width  = w  + 'px';
+    sel.style.height = h  + 'px';
+  }
+
+  function onEnd(e) {
+    if (!cropMode || !cropStart) return;
+    var pos = getEventPos(e.changedTouches ? {clientX: e.changedTouches[0].clientX, clientY: e.changedTouches[0].clientY} : e, overlay);
+    var canvas = document.getElementById('canvas-preview');
+    var cx0 = Math.min(cropStart.cx, pos.cx);
+    var cy0 = Math.min(cropStart.cy, pos.cy);
+    var cw  = Math.abs(pos.cx - cropStart.cx);
+    var ch  = Math.abs(pos.cy - cropStart.cy);
+    if (cw > 5 && ch > 5) {
+      cropRect = {
+        x: clamp(Math.round(cx0), 0, canvas.width),
+        y: clamp(Math.round(cy0), 0, canvas.height),
+        w: clamp(Math.round(cw),  1, canvas.width),
+        h: clamp(Math.round(ch),  1, canvas.height)
+      };
+      document.getElementById('btn-apply-crop').disabled = false;
+      document.getElementById('crop-hint').textContent = '✅ 範囲を確認して「この範囲で切り抜く」を押してください';
+    }
+    cropStart = null;
+  }
+
+  overlay.addEventListener('mousedown',  onStart, {passive:false});
+  overlay.addEventListener('mousemove',  onMove,  {passive:false});
+  overlay.addEventListener('mouseup',    onEnd,   {passive:false});
+  overlay.addEventListener('touchstart', onStart, {passive:false});
+  overlay.addEventListener('touchmove',  onMove,  {passive:false});
+  overlay.addEventListener('touchend',   onEnd,   {passive:false});
+})();
+
+function applyCrop() {
+  if (!cropRect) return;
+  var src  = document.getElementById('canvas-preview');
+  var dst  = document.createElement('canvas');
+  dst.width  = cropRect.w;
+  dst.height = cropRect.h;
+  dst.getContext('2d').drawImage(src, cropRect.x, cropRect.y, cropRect.w, cropRect.h, 0, 0, cropRect.w, cropRect.h);
+
+  // canvas-previewをトリミング後の画像で置き換え
+  var ctx = src.getContext('2d');
+  src.width  = cropRect.w;
+  src.height = cropRect.h;
+  ctx.drawImage(dst, 0, 0);
+
+  dst.toBlob(function(blob) {
+    capturedBlob = blob;
+    showMeta(blob.size);
+  }, 'image/jpeg', 0.92);
+  capturedFile = null;
+
+  exitCropMode();
+  showCtrl('preview');
+  document.getElementById('name-area').classList.add('show');
+  cropRect = null;
+  clearStatus();
 }
 
 // =============================================
