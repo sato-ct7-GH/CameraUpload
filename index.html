@@ -181,6 +181,32 @@
     padding: 4px 0;
   }
 
+  /* ── 名前入力欄 ── */
+  #name-area {
+    display: none;
+    flex-direction: column;
+    gap: 6px;
+  }
+  #name-area.show { display: flex; }
+  #name-area label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #444;
+  }
+  #sender-name {
+    font-size: 16px;
+    padding: 12px 14px;
+    border: 1.5px solid var(--gray-border);
+    border-radius: var(--radius-sm);
+    width: 100%;
+    background: #fff;
+    color: #222;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  #sender-name:focus { border-color: var(--green); }
+  #sender-name.error { border-color: var(--red); }
+
   /* ── GAS URL 設定ボタン ── */
   #btn-gas-toggle {
     align-self: flex-end;
@@ -266,6 +292,13 @@
   </div>
 
   <p id="meta"></p>
+
+  <!-- 名前入力欄（プレビュー時のみ表示） -->
+  <div id="name-area">
+    <label for="sender-name">📝 送信者名（必須）</label>
+    <input type="text" id="sender-name" placeholder="例：山田太郎" autocomplete="name" enterkeyhint="done">
+  </div>
+
   <div id="status"></div>
 
   <!-- コントロール: 初期 -->
@@ -359,6 +392,15 @@ function showCtrl(name) {
   ['start','camera','preview'].forEach(function(n) {
     document.getElementById('ctrl-' + n).style.display = n === name ? (n === 'camera' || n === 'preview' ? 'flex' : 'block') : 'none';
   });
+  // プレビュー時のみ名前入力欄を表示
+  var nameArea = document.getElementById('name-area');
+  if (name === 'preview') {
+    nameArea.classList.add('show');
+    document.getElementById('sender-name').focus();
+  } else {
+    nameArea.classList.remove('show');
+    document.getElementById('sender-name').classList.remove('error');
+  }
 }
 
 // =============================================
@@ -469,6 +511,7 @@ function retake() {
   document.getElementById('meta').style.display = 'none';
   capturedBlob = null;
   capturedFile = null;
+  document.getElementById('sender-name').value = '';
   clearStatus();
   showCtrl('start');
   // ファイル入力をリセット
@@ -501,6 +544,17 @@ function sendToDrive() {
     return;
   }
 
+  // 名前チェック
+  var nameInput = document.getElementById('sender-name');
+  var senderName = nameInput.value.trim();
+  if (!senderName) {
+    nameInput.classList.add('error');
+    nameInput.focus();
+    setStatus('送信者名を入力してください。', 'error');
+    return;
+  }
+  nameInput.classList.remove('error');
+
   var sourceBlob = capturedBlob || (capturedFile ? null : null);
 
   // ファイル選択の場合はcanvasから取得
@@ -520,7 +574,9 @@ function doUpload(gasUrl, blob) {
 
   var now = new Date();
   var pad = function(n){ return ('0'+n).slice(-2); };
-  var fileName = 'photo_'
+  var senderName = document.getElementById('sender-name').value.trim();
+  var safeName   = senderName.replace(/[\\/:*?"<>|]/g, '_'); // ファイル名不可文字を除去
+  var fileName   = safeName + '_photo_'
     + now.getFullYear() + pad(now.getMonth()+1) + pad(now.getDate())
     + '_' + pad(now.getHours()) + pad(now.getMinutes()) + pad(now.getSeconds())
     + '.jpg';
