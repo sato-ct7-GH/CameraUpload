@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>写真送信</title>
+<style>
+  /* ── リセット ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* ── ベース ── */
+  :root {
+    --green:       #1a9e7a;
+    --green-dark:  #0f7a5e;
+    --green-light: #e6f7f3;
+    --red:         #d94f3d;
+    --red-light:   #fdf0ee;
+    --gray-bg:     #f5f5f5;
+    --gray-border: #ddd;
+    --gray-text:   #666;
+    --radius:      12px;
+    --radius-sm:   8px;
+  }
+
+  html, body {
+    height: 100%;
+    font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+    background: #fff;
+    color: #222;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── レイアウト ── */
+  #app {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 20px 16px 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-height: 100vh;
+  }
+
+  /* ── ヘッダー ── */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    justify-content: space-between;
+  }
+  .logo {
+    width: 36px; height: 36px;
+    background: var(--green);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff;
+    font-size: 18px;
+  }
+  header h1 { font-size: 17px; font-weight: 600; }
+  header p  { font-size: 12px; color: var(--gray-text); margin-top: 1px; }
+
+  /* ── カメラエリア ── */
+  #camera-area {
+    background: var(--gray-bg);
+    border: 1.5px solid var(--gray-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    aspect-ratio: 4 / 3;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #video, #canvas-preview {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: none;
+  }
+  #video.active, #canvas-preview.active { display: block; }
+
+  #placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    color: #aaa;
+    padding: 24px;
+    text-align: center;
+  }
+  #placeholder svg { width: 56px; height: 56px; }
+  #placeholder p   { font-size: 14px; line-height: 1.5; }
+
+  /* ── ファイル選択フォールバック ── */
+  #file-fallback {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    color: var(--gray-text);
+    padding: 24px;
+    text-align: center;
+  }
+  #file-fallback p { font-size: 13px; }
+  #file-input {
+    font-size: 14px;
+    padding: 10px 16px;
+    border: 1.5px solid var(--gray-border);
+    border-radius: var(--radius-sm);
+    background: #fff;
+    cursor: pointer;
+    width: 100%;
+  }
+
+  /* ── ステータス ── */
+  #status {
+    display: none;
+    padding: 11px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    line-height: 1.5;
+    align-items: flex-start;
+    gap: 8px;
+    border: 1px solid transparent;
+  }
+  #status.show   { display: flex; }
+  #status.info   { background: #eef6ff; border-color: #b3d4f5; color: #1a5fa0; }
+  #status.success{ background: var(--green-light); border-color: #a3dbc8; color: var(--green-dark); }
+  #status.error  { background: var(--red-light);   border-color: #f1b4ac; color: var(--red); }
+  .status-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+  .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    flex-shrink: 0; margin-top: 3px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── ボタン ── */
+  .btn {
+    width: 100%;
+    padding: 14px;
+    border-radius: var(--radius);
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    border: none;
+    transition: filter 0.15s, transform 0.1s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .btn:active  { transform: scale(0.97); }
+  .btn:disabled{ opacity: 0.45; cursor: not-allowed; transform: none; }
+
+  .btn-primary { background: var(--green);  color: #fff; }
+  .btn-primary:hover:not(:disabled) { filter: brightness(0.92); }
+
+  .btn-secondary {
+    background: #fff;
+    color: #444;
+    border: 1.5px solid var(--gray-border);
+  }
+  .btn-secondary:hover:not(:disabled) { background: var(--gray-bg); }
+
+  .btn-danger { background: var(--red-light); color: var(--red); border: 1.5px solid #f1b4ac; }
+  .btn-danger:hover:not(:disabled) { filter: brightness(0.95); }
+
+  .row { display: flex; gap: 10px; }
+  .row .btn { flex: 1; }
+
+  /* ── メタ情報 ── */
+  #meta {
+    display: none;
+    font-size: 12px;
+    color: var(--gray-text);
+    text-align: center;
+    padding: 4px 0;
+  }
+
+  /* ── GAS URL 設定ボタン ── */
+  #btn-gas-toggle {
+    align-self: flex-end;
+    padding: 6px 12px;
+    background: transparent;
+    border: 1px solid var(--gray-border);
+    border-radius: 20px;
+    font-size: 12px;
+    color: var(--gray-text);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: background 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #btn-gas-toggle:hover { background: var(--gray-bg); }
+
+  /* ── GAS URL 設定エリア ── */
+  #gas-setting {
+    background: #fffbea;
+    border: 1px solid #f0d070;
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+  }
+  #gas-setting.open { display: flex; }
+  #gas-setting label { font-size: 12px; font-weight: 600; color: #7a5c00; }
+  #gas-url-input {
+    font-size: 12px;
+    padding: 8px 10px;
+    border: 1px solid #e0c060;
+    border-radius: 6px;
+    width: 100%;
+    background: #fff;
+    color: #333;
+  }
+  .gas-hint { font-size: 11px; color: #a08040; line-height: 1.5; }
+
+  /* ── 成功リンク ── */
+  #drive-link {
+    display: none;
+    text-align: center;
+    font-size: 13px;
+  }
+  #drive-link a {
+    color: var(--green);
+    font-weight: 600;
+    text-decoration: none;
+  }
+  #drive-link a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ヘッダー -->
+  <header>
+    <div class="logo">📷</div>
+    <div>
+      <h1>写真をDriveへ送信</h1>
+      <p>撮影してGoogle Driveに自動保存</p>
+    </div>
+  </header>
+
+  <!-- URL設定トグルボタン -->
+  <button id="btn-gas-toggle" onclick="toggleGasSetting()">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    URL設定
+  </button>
+
+  <!-- GAS URL設定（デフォルト非表示） -->
+  <div id="gas-setting">
+    <label>⚙️ GAS WebアプリURL</label>
+    <input type="url" id="gas-url-input" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off">
+    <p class="gas-hint">URLは設定済みです。変更する場合は上の欄に貼り付けてください。入力後は自動保存されます。</p>
+  </div>
+
+  <!-- カメラプレビュー -->
+  <div id="camera-area">
+    <div id="placeholder">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+        <circle cx="12" cy="13" r="4"/>
+      </svg>
+      <p>「カメラを起動」を押して<br>撮影を開始してください</p>
+    </div>
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="canvas-preview"></canvas>
+    <div id="file-fallback">
+      <p>カメラが使用できません。<br>ファイルを選択してアップロードできます。</p>
+      <input type="file" id="file-input" accept="image/*" capture="environment">
+    </div>
+  </div>
+
+  <p id="meta"></p>
+  <div id="status"></div>
+  <div id="drive-link"><a id="drive-link-a" href="#" target="_blank">📂 Driveで開く</a></div>
+
+  <!-- コントロール: 初期 -->
+  <div id="ctrl-start">
+    <button class="btn btn-primary" onclick="startCamera()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      カメラを起動
+    </button>
+  </div>
+
+  <!-- コントロール: カメラ起動中 -->
+  <div id="ctrl-camera" style="display:none;" class="row">
+    <button class="btn btn-danger" onclick="stopCamera()">キャンセル</button>
+    <button class="btn btn-primary" onclick="shoot()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="9"/></svg>
+      撮影
+    </button>
+  </div>
+
+  <!-- コントロール: プレビュー確認 -->
+  <div id="ctrl-preview" style="display:none;" class="row">
+    <button class="btn btn-secondary" onclick="retake()">撮り直し</button>
+    <button class="btn btn-primary" id="btn-send" onclick="sendToDrive()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      Driveへ送信
+    </button>
+  </div>
+
+</div>
+
+<script>
+// =============================================
+// 設定
+// =============================================
+var STORAGE_KEY   = 'gas_upload_url';
+var DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbz7TfG8faY3joY7vkW8xvgpsTWPOZmiMWGun2CrOtbQQTveSAwSVhluEePm7EvcqMyPmg/exec';
+
+// =============================================
+// 状態
+// =============================================
+var stream       = null;
+var capturedBlob = null;
+var capturedFile = null;  // ファイル選択フォールバック用
+
+// =============================================
+// GAS URL の保存・読み込み・トグル
+// =============================================
+(function initUrl() {
+  var saved = localStorage.getItem(STORAGE_KEY) || DEFAULT_GAS_URL;
+  document.getElementById('gas-url-input').value = saved;
+})();
+
+document.getElementById('gas-url-input').addEventListener('input', function() {
+  localStorage.setItem(STORAGE_KEY, this.value.trim());
+});
+
+function toggleGasSetting() {
+  var panel = document.getElementById('gas-setting');
+  var btn   = document.getElementById('btn-gas-toggle');
+  var isOpen = panel.classList.toggle('open');
+  btn.style.color = isOpen ? 'var(--green)' : '';
+  btn.style.borderColor = isOpen ? 'var(--green)' : '';
+  if (isOpen) document.getElementById('gas-url-input').focus();
+}
+
+function getGasUrl() {
+  return (document.getElementById('gas-url-input').value || DEFAULT_GAS_URL).trim();
+}
+
+// =============================================
+// ステータス表示
+// =============================================
+function setStatus(msg, type) {
+  var el = document.getElementById('status');
+  el.className = 'show ' + (type || '');
+  var icon = '';
+  if (type === 'success') icon = '<span class="status-icon">✅</span>';
+  else if (type === 'error') icon = '<span class="status-icon">❌</span>';
+  else if (type === 'info')  icon = '<div class="spinner"></div>';
+  el.innerHTML = icon + '<span>' + msg + '</span>';
+  document.getElementById('drive-link').style.display = 'none';
+}
+function clearStatus() {
+  document.getElementById('status').className = '';
+  document.getElementById('status').innerHTML = '';
+  document.getElementById('drive-link').style.display = 'none';
+}
+
+// =============================================
+// パネル切り替え
+// =============================================
+function showCtrl(name) {
+  ['start','camera','preview'].forEach(function(n) {
+    document.getElementById('ctrl-' + n).style.display = n === name ? (n === 'camera' || n === 'preview' ? 'flex' : 'block') : 'none';
+  });
+}
+
+// =============================================
+// カメラ起動
+// =============================================
+function startCamera() {
+  clearStatus();
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    showFileFallback('このブラウザはカメラAPIに対応していません。');
+    return;
+  }
+
+  navigator.mediaDevices.getUserMedia({
+    video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+    audio: false
+  }).then(function(s) {
+    stream = s;
+    var video = document.getElementById('video');
+    video.srcObject = stream;
+    document.getElementById('placeholder').style.display = 'none';
+    video.classList.add('active');
+    showCtrl('camera');
+  }).catch(function(err) {
+    if (err.name === 'NotAllowedError') {
+      showFileFallback('カメラへのアクセスが拒否されました。ファイルを選択してください。');
+    } else {
+      showFileFallback('カメラを起動できませんでした。ファイルを選択してください。');
+    }
+  });
+}
+
+function showFileFallback(msg) {
+  setStatus(msg, 'error');
+  document.getElementById('placeholder').style.display = 'none';
+  document.getElementById('file-fallback').style.display = 'flex';
+  document.getElementById('file-input').addEventListener('change', onFileSelected, { once: true });
+  showCtrl('start');
+}
+
+function onFileSelected(e) {
+  var file = e.target.files[0];
+  if (!file) return;
+  capturedFile = file;
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    var img = new Image();
+    img.onload = function() {
+      var canvas = document.getElementById('canvas-preview');
+      canvas.width  = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      canvas.getContext('2d').drawImage(img, 0, 0);
+      canvas.classList.add('active');
+      document.getElementById('file-fallback').style.display = 'none';
+      showMeta(file.size);
+      clearStatus();
+      showCtrl('preview');
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+// =============================================
+// 撮影
+// =============================================
+function shoot() {
+  var video  = document.getElementById('video');
+  var canvas = document.getElementById('canvas-preview');
+  canvas.width  = video.videoWidth  || 1280;
+  canvas.height = video.videoHeight || 720;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+
+  canvas.toBlob(function(blob) {
+    capturedBlob = blob;
+    showMeta(blob.size);
+  }, 'image/jpeg', 0.92);
+
+  stopStream();
+  video.classList.remove('active');
+  canvas.classList.add('active');
+  capturedFile = null;
+  clearStatus();
+  showCtrl('preview');
+}
+
+function stopStream() {
+  if (stream) { stream.getTracks().forEach(function(t){ t.stop(); }); stream = null; }
+}
+
+function stopCamera() {
+  stopStream();
+  document.getElementById('video').classList.remove('active');
+  document.getElementById('placeholder').style.display = 'flex';
+  clearStatus();
+  showCtrl('start');
+}
+
+// =============================================
+// 撮り直し
+// =============================================
+function retake() {
+  document.getElementById('canvas-preview').classList.remove('active');
+  document.getElementById('file-fallback').style.display = 'none';
+  document.getElementById('placeholder').style.display = 'flex';
+  document.getElementById('meta').style.display = 'none';
+  capturedBlob = null;
+  capturedFile = null;
+  clearStatus();
+  showCtrl('start');
+  // ファイル入力をリセット
+  var fi = document.getElementById('file-input');
+  fi.value = '';
+  fi.addEventListener('change', onFileSelected, { once: true });
+}
+
+// =============================================
+// メタ情報表示
+// =============================================
+function showMeta(size) {
+  var now = new Date();
+  var pad = function(n){ return ('0'+n).slice(-2); };
+  var ts  = now.getFullYear() + '/' + pad(now.getMonth()+1) + '/' + pad(now.getDate())
+           + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+  var kb  = Math.round(size / 1024);
+  document.getElementById('meta').textContent = '📅 ' + ts + '　📦 ' + kb + ' KB';
+  document.getElementById('meta').style.display = 'block';
+}
+
+// =============================================
+// Drive送信
+// =============================================
+function sendToDrive() {
+  var gasUrl = getGasUrl();
+  if (!gasUrl) {
+    setStatus('GASのWebアプリURLを上の欄に入力してください。', 'error');
+    return;
+  }
+
+  var sourceBlob = capturedBlob || (capturedFile ? null : null);
+
+  // ファイル選択の場合はcanvasから取得
+  if (!capturedBlob && capturedFile) {
+    var canvas = document.getElementById('canvas-preview');
+    canvas.toBlob(function(blob) { doUpload(gasUrl, blob); }, 'image/jpeg', 0.92);
+    return;
+  }
+  if (!capturedBlob) { setStatus('送信する画像がありません。', 'error'); return; }
+  doUpload(gasUrl, capturedBlob);
+}
+
+function doUpload(gasUrl, blob) {
+  var btn = document.getElementById('btn-send');
+  btn.disabled = true;
+  setStatus('Google Driveに送信中...', 'info');
+
+  var now = new Date();
+  var pad = function(n){ return ('0'+n).slice(-2); };
+  var fileName = 'photo_'
+    + now.getFullYear() + pad(now.getMonth()+1) + pad(now.getDate())
+    + '_' + pad(now.getHours()) + pad(now.getMinutes()) + pad(now.getSeconds())
+    + '.jpg';
+
+  var reader = new FileReader();
+  reader.onload = function() {
+    var base64 = reader.result; // "data:image/jpeg;base64,..."
+
+    fetch(gasUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' }, // GASのCORS対策でtext/plainを使用
+      body: JSON.stringify({ image: base64, fileName: fileName })
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+      if (data.success) {
+        setStatus('「' + data.fileName + '」をDriveに保存しました！', 'success');
+        if (data.fileUrl) {
+          var link = document.getElementById('drive-link');
+          document.getElementById('drive-link-a').href = data.fileUrl;
+          link.style.display = 'block';
+        }
+      } else {
+        setStatus('送信失敗: ' + (data.error || '不明なエラー'), 'error');
+      }
+    })
+    .catch(function(err) {
+      setStatus('通信エラー: ' + err.message + '　GASのURLを確認してください。', 'error');
+    })
+    .finally(function() {
+      btn.disabled = false;
+    });
+  };
+  reader.readAsDataURL(blob);
+}
+</script>
+</body>
+</html>
