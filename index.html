@@ -4,807 +4,387 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>写真送信</title>
+<title>実験写真 送信</title>
 <style>
-  /* ── リセット ── */
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --green:#1a9e7a;
+  --green-dark:#0f7a5e;
+  --green-light:#e6f7f3;
+  --gray-bg:#f2f2f2;
+  --gray-border:#ddd;
+  --gray-text:#666;
+  --radius:10px;
+}
+html,body{
+  min-height:100%;
+  font-family:'Hiragino Sans','Hiragino Kaku Gothic ProN','Noto Sans JP',sans-serif;
+  background:#fafafa;color:#222;-webkit-font-smoothing:antialiased;
+}
 
-  /* ── ベース ── */
-  :root {
-    --green:       #1a9e7a;
-    --green-dark:  #0f7a5e;
-    --green-light: #e6f7f3;
-    --red:         #d94f3d;
-    --red-light:   #fdf0ee;
-    --gray-bg:     #f5f5f5;
-    --gray-border: #ddd;
-    --gray-text:   #666;
-    --radius:      12px;
-    --radius-sm:   8px;
-  }
+/* ── ヘッダー ── */
+#header{
+  position:sticky;top:0;z-index:100;background:#fff;
+  border-bottom:1px solid var(--gray-border);
+  padding:12px 16px;display:flex;align-items:center;gap:10px;
+}
+.logo{
+  width:32px;height:32px;background:var(--green);border-radius:50%;
+  display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;flex-shrink:0;
+}
+#header h1{font-size:16px;font-weight:600;flex:1}
+#btn-gas-toggle{
+  padding:5px 11px;background:transparent;
+  border:1px solid var(--gray-border);border-radius:20px;
+  font-size:12px;color:var(--gray-text);cursor:pointer;
+  display:flex;align-items:center;gap:5px;transition:background .15s;
+  -webkit-tap-highlight-color:transparent;
+}
+#btn-gas-toggle:hover{background:var(--gray-bg)}
+#btn-gas-toggle.active{color:var(--green);border-color:var(--green)}
 
-  html, body {
-    height: 100%;
-    font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
-    background: #fff;
-    color: #222;
-    -webkit-font-smoothing: antialiased;
-  }
+/* ── GAS設定パネル ── */
+#gas-bar{
+  background:#fffbea;border-bottom:1px solid #f0d070;
+  padding:10px 16px;display:none;align-items:center;gap:8px;flex-wrap:wrap;
+}
+#gas-bar.open{display:flex}
+#gas-bar label{font-size:12px;font-weight:600;color:#7a5c00;white-space:nowrap}
+#gas-url-input{
+  flex:1;min-width:0;font-size:12px;padding:7px 10px;
+  border:1px solid #e0c060;border-radius:6px;background:#fff;color:#333;
+}
 
-  /* ── レイアウト ── */
-  #app {
-    max-width: 480px;
-    margin: 0 auto;
-    padding: 20px 16px 40px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    min-height: 100vh;
-  }
+/* ── 本体 ── */
+main{max-width:520px;margin:0 auto;padding:18px 16px 40px;}
+.section{margin-bottom:22px;}
+.section-label{
+  font-size:12px;font-weight:600;color:var(--gray-text);
+  margin-bottom:8px;letter-spacing:.04em;
+}
 
-  /* ── ヘッダー ── */
-  header {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    justify-content: space-between;
-  }
-  .logo {
-    width: 36px; height: 36px;
-    background: var(--green);
-    border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    color: #fff;
-    font-size: 18px;
-  }
-  header h1 { font-size: 17px; font-weight: 600; }
-  header p  { font-size: 12px; color: var(--gray-text); margin-top: 1px; }
+/* ── モード切替（セグメント） ── */
+.segment{
+  display:flex;background:var(--gray-bg);border-radius:12px;padding:4px;gap:4px;
+}
+.segment button{
+  flex:1;border:none;background:transparent;cursor:pointer;
+  padding:12px 8px;border-radius:9px;font-size:15px;font-weight:600;color:var(--gray-text);
+  transition:all .15s;-webkit-tap-highlight-color:transparent;
+}
+.segment button.active{background:var(--green);color:#fff;box-shadow:0 1px 4px rgba(0,0,0,.12)}
 
-  /* ── カメラエリア ── */
-  #camera-area {
-    background: var(--gray-bg);
-    border: 1.5px solid var(--gray-border);
-    border-radius: var(--radius);
-    overflow: hidden;
-    aspect-ratio: 4 / 3;
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
+.dest-hint{
+  margin-top:8px;font-size:12px;color:var(--green-dark);
+  background:var(--green-light);border-radius:8px;padding:8px 11px;line-height:1.5;
+}
 
-  #video, #canvas-preview {
-    width: 100%; height: 100%;
-    object-fit: cover;
-    display: none;
-  }
-  #video.active, #canvas-preview.active { display: block; }
+/* ── 氏名選択 ── */
+select#name{
+  width:100%;font-size:16px;padding:13px 12px;
+  border:1px solid var(--gray-border);border-radius:var(--radius);
+  background:#fff;color:#222;appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23888' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 14px center;
+}
+select#name.required-empty{border-color:#d94f3d;background-color:#fdf0ee}
 
-  #placeholder {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
-    color: #aaa;
-    padding: 24px;
-    text-align: center;
-  }
-  #placeholder svg { width: 56px; height: 56px; }
-  #placeholder p   { font-size: 14px; line-height: 1.5; }
+/* ── 撮影/選択 ── */
+#file-input{display:none}
+.capture-btn{
+  width:100%;border:2px dashed var(--gray-border);border-radius:var(--radius);
+  background:#fff;color:var(--green-dark);cursor:pointer;
+  padding:26px 16px;display:flex;flex-direction:column;align-items:center;gap:10px;
+  font-size:15px;font-weight:600;transition:border-color .15s,background .15s;
+  -webkit-tap-highlight-color:transparent;
+}
+.capture-btn:hover{border-color:var(--green);background:var(--green-light)}
+.capture-btn svg{width:40px;height:40px;stroke:var(--green)}
 
-  /* ── ファイル選択フォールバック ── */
-  #file-fallback {
-    display: none;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    color: var(--gray-text);
-    padding: 24px;
-    text-align: center;
-  }
-  #file-fallback p { font-size: 13px; }
-  #file-input {
-    font-size: 14px;
-    padding: 10px 16px;
-    border: 1.5px solid var(--gray-border);
-    border-radius: var(--radius-sm);
-    background: #fff;
-    cursor: pointer;
-    width: 100%;
-  }
+#preview-wrap{display:none;position:relative;border-radius:var(--radius);overflow:hidden;background:#000}
+#preview-wrap.show{display:block}
+#preview{width:100%;max-height:60vh;object-fit:contain;display:block}
+#btn-retake{
+  position:absolute;top:10px;right:10px;
+  background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:20px;
+  padding:8px 14px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;
+}
+#btn-retake:hover{background:rgba(0,0,0,.8)}
 
-  /* ── ステータス ── */
-  #status {
-    display: none;
-    padding: 11px 14px;
-    border-radius: var(--radius-sm);
-    font-size: 13px;
-    line-height: 1.5;
-    align-items: flex-start;
-    gap: 8px;
-    border: 1px solid transparent;
-  }
-  #status.show   { display: flex; }
-  #status.info   { background: #eef6ff; border-color: #b3d4f5; color: #1a5fa0; }
-  #status.success{ background: var(--green-light); border-color: #a3dbc8; color: var(--green-dark); }
-  #status.error  { background: var(--red-light);   border-color: #f1b4ac; color: var(--red); }
-  .status-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
-  .spinner {
-    width: 16px; height: 16px;
-    border: 2px solid currentColor;
-    border-top-color: transparent;
-    border-radius: 50%;
-    animation: spin 0.7s linear infinite;
-    flex-shrink: 0; margin-top: 3px;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
+/* ── 送信ボタン ── */
+#btn-send{
+  width:100%;border:none;border-radius:var(--radius);
+  background:var(--green);color:#fff;font-size:17px;font-weight:700;
+  padding:16px;cursor:pointer;transition:background .15s,opacity .15s;
+  -webkit-tap-highlight-color:transparent;
+}
+#btn-send:hover{background:var(--green-dark)}
+#btn-send:disabled{opacity:.4;cursor:not-allowed}
 
-  /* ── ボタン ── */
-  .btn {
-    width: 100%;
-    padding: 14px;
-    border-radius: var(--radius);
-    font-size: 16px;
-    font-weight: 600;
-    cursor: pointer;
-    display: flex; align-items: center; justify-content: center; gap: 8px;
-    border: none;
-    transition: filter 0.15s, transform 0.1s;
-    -webkit-tap-highlight-color: transparent;
-  }
-  .btn:active  { transform: scale(0.97); }
-  .btn:disabled{ opacity: 0.45; cursor: not-allowed; transform: none; }
-
-  .btn-primary { background: var(--green);  color: #fff; }
-  .btn-primary:hover:not(:disabled) { filter: brightness(0.92); }
-
-  .btn-secondary {
-    background: #fff;
-    color: #444;
-    border: 1.5px solid var(--gray-border);
-  }
-  .btn-secondary:hover:not(:disabled) { background: var(--gray-bg); }
-
-  .btn-danger { background: var(--red-light); color: var(--red); border: 1.5px solid #f1b4ac; }
-  .btn-danger:hover:not(:disabled) { filter: brightness(0.95); }
-
-  .row { display: flex; gap: 10px; }
-  .row .btn { flex: 1; }
-
-  /* ── メタ情報 ── */
-  #meta {
-    display: none;
-    font-size: 12px;
-    color: var(--gray-text);
-    text-align: center;
-    padding: 4px 0;
-  }
-
-  /* ── トリミングオーバーレイ ── */
-  #crop-overlay {
-    display: none;
-    position: absolute; inset: 0;
-    cursor: crosshair;
-    touch-action: none;
-  }
-  #crop-overlay.active { display: block; }
-  #crop-selection {
-    position: absolute;
-    border: 2px solid #fff;
-    box-shadow: 0 0 0 9999px rgba(0,0,0,0.45);
-    pointer-events: none;
-    display: none;
-    box-sizing: border-box;
-  }
-  /* トリミングモード時のカメラエリア */
-  #camera-area.crop-mode { cursor: crosshair; }
-
-  /* ── トリミングボタン行 ── */
-  #ctrl-crop {
-    display: none;
-    gap: 8px;
-    flex-direction: column;
-  }
-  #ctrl-crop.show { display: flex; }
-  #crop-hint {
-    font-size: 12px;
-    color: var(--gray-text);
-    text-align: center;
-    padding: 2px 0;
-  }
-
-  /* ── 名前入力欄 ── */
-  #name-area {
-    display: none;
-    flex-direction: column;
-    gap: 6px;
-  }
-  #name-area.show { display: flex; }
-  #name-area label {
-    font-size: 13px;
-    font-weight: 600;
-    color: #444;
-  }
-  #sender-name {
-    font-size: 16px;
-    padding: 12px 14px;
-    border: 1.5px solid var(--gray-border);
-    border-radius: var(--radius-sm);
-    width: 100%;
-    background: #fff;
-    color: #222;
-    outline: none;
-    transition: border-color 0.15s;
-  }
-  #sender-name:focus { border-color: var(--green); }
-  #sender-name.error { border-color: var(--red); }
-
-  /* ── GAS URL 設定ボタン ── */
-  #btn-gas-toggle {
-    align-self: flex-end;
-    padding: 6px 12px;
-    background: transparent;
-    border: 1px solid var(--gray-border);
-    border-radius: 20px;
-    font-size: 12px;
-    color: var(--gray-text);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    transition: background 0.15s;
-    -webkit-tap-highlight-color: transparent;
-  }
-  #btn-gas-toggle:hover { background: var(--gray-bg); }
-
-  /* ── GAS URL 設定エリア ── */
-  #gas-setting {
-    background: #fffbea;
-    border: 1px solid #f0d070;
-    border-radius: var(--radius-sm);
-    padding: 12px 14px;
-    display: none;
-    flex-direction: column;
-    gap: 8px;
-  }
-  #gas-setting.open { display: flex; }
-  #gas-setting label { font-size: 12px; font-weight: 600; color: #7a5c00; }
-  #gas-url-input {
-    font-size: 12px;
-    padding: 8px 10px;
-    border: 1px solid #e0c060;
-    border-radius: 6px;
-    width: 100%;
-    background: #fff;
-    color: #333;
-  }
-  .gas-hint { font-size: 11px; color: #a08040; line-height: 1.5; }
-
-
+/* ── ステータス ── */
+#status{
+  display:none;margin-top:16px;padding:12px 14px;font-size:14px;border-radius:var(--radius);
+  align-items:center;gap:9px;line-height:1.5;
+}
+#status.show{display:flex}
+#status.info{background:#eef6ff;color:#1a5fa0}
+#status.success{background:var(--green-light);color:var(--green-dark)}
+#status.error{background:#fdf0ee;color:#d94f3d}
+.spinner{
+  width:16px;height:16px;border:2px solid currentColor;border-top-color:transparent;
+  border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
-<div id="app">
 
-  <!-- ヘッダー -->
-  <header>
-    <div class="logo">📷</div>
-    <div>
-      <h1>写真をDriveへ送信</h1>
-      <p>撮影してGoogle Driveに自動保存</p>
+<div id="header">
+  <div class="logo">📷</div>
+  <h1>実験写真 送信</h1>
+  <button id="btn-gas-toggle" onclick="toggleGasBar()">⚙ 設定</button>
+</div>
+
+<div id="gas-bar">
+  <label for="gas-url-input">GAS URL</label>
+  <input id="gas-url-input" type="url" placeholder="https://script.google.com/macros/s/.../exec">
+</div>
+
+<main>
+  <!-- 送信モード -->
+  <div class="section">
+    <div class="section-label">送信モード</div>
+    <div class="segment" id="mode-seg">
+      <button class="active" data-mode="shared"   onclick="setMode('shared')">共有</button>
+      <button             data-mode="personal" onclick="setMode('personal')">個人</button>
     </div>
-    <button id="btn-gas-toggle" onclick="toggleGasSetting()">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-      URL設定
-    </button>
-  </header>
-
-  <!-- GAS URL設定（デフォルト非表示） -->
-  <div id="gas-setting">
-    <label>⚙️ GAS WebアプリURL</label>
-    <input type="url" id="gas-url-input" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off">
-    <p class="gas-hint">URLは設定済みです。変更する場合は上の欄に貼り付けてください。入力後は自動保存されます。</p>
+    <div class="dest-hint" id="dest-hint"></div>
   </div>
 
-  <!-- カメラプレビュー -->
-  <div id="camera-area">
-    <div id="placeholder">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+  <!-- 氏名 -->
+  <div class="section">
+    <div class="section-label">氏名</div>
+    <select id="name">
+      <option value="">― 選択してください ―</option>
+      <option value="小野山明宏">小野山明宏</option>
+      <option value="小林優太">小林優太</option>
+      <option value="柴山凌豪">柴山凌豪</option>
+      <option value="武田和真">武田和真</option>
+      <option value="松尾莉奈">松尾莉奈</option>
+      <option value="大川夏純">大川夏純</option>
+      <option value="大宮茉奈">大宮茉奈</option>
+      <option value="手代森洸大">手代森洸大</option>
+      <option value="渡邉聡">渡邉聡</option>
+      <option value="赤田幸翼">赤田幸翼</option>
+      <option value="飯出遥斗">飯出遥斗</option>
+      <option value="纓田拓海">纓田拓海</option>
+      <option value="北川郁">北川郁</option>
+      <option value="古川修大">古川修大</option>
+      <option value="青砥孝道">青砥孝道</option>
+      <option value="芝田健伸">芝田健伸</option>
+      <option value="飯島柊斗">飯島柊斗</option>
+      <option value="瀬沼友尋">瀬沼友尋</option>
+      <option value="疋田昊羽">疋田昊羽</option>
+      <option value="出原日菜">出原日菜</option>
+      <option value="木村友紀">木村友紀</option>
+      <option value="坂口大瑚">坂口大瑚</option>
+      <option value="関優磨">関優磨</option>
+      <option value="髙橋華子">髙橋華子</option>
+      <option value="竹中麻陽">竹中麻陽</option>
+      <option value="野口爽吾">野口爽吾</option>
+      <option value="関根宙音">関根宙音</option>
+      <option value="瀬戸雅矢">瀬戸雅矢</option>
+      <option value="永田悠輝登">永田悠輝登</option>
+      <option value="羽田野優人">羽田野優人</option>
+      <option value="沖ひかり">沖ひかり</option>
+      <option value="佐川泰遥">佐川泰遥</option>
+      <option value="副島由莉">副島由莉</option>
+      <option value="町田陽太">町田陽太</option>
+      <option value="山本理治">山本理治</option>
+      <option value="渡部櫂成">渡部櫂成</option>
+    </select>
+  </div>
+
+  <!-- 撮影・選択 -->
+  <div class="section">
+    <div class="section-label">写真</div>
+    <input id="file-input" type="file" accept="image/*" capture="environment" onchange="onFile(event)">
+    <button class="capture-btn" id="capture-btn" onclick="document.getElementById('file-input').click()">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
         <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
         <circle cx="12" cy="13" r="4"/>
       </svg>
-      <p>「カメラを起動」を押して<br>撮影を開始してください</p>
-    </div>
-    <video id="video" autoplay playsinline muted></video>
-    <canvas id="canvas-preview"></canvas>
-    <div id="crop-overlay"></div>
-    <div id="crop-selection"></div>
-    <div id="file-fallback">
-      <p>カメラが使用できません。<br>ファイルを選択してアップロードできます。</p>
-      <input type="file" id="file-input" accept="image/*">
+      写真を撮影 / 選択
+    </button>
+    <div id="preview-wrap">
+      <img id="preview" alt="プレビュー">
+      <button id="btn-retake" onclick="resetPhoto()">↺ 撮り直す</button>
     </div>
   </div>
 
-  <p id="meta"></p>
-
-  <!-- 名前入力欄（プレビュー時のみ表示） -->
-  <div id="name-area">
-    <label for="sender-name">📝 送信者名（必須）</label>
-    <input type="text" id="sender-name" placeholder="例：山田太郎" autocomplete="name" enterkeyhint="done">
+  <!-- 送信 -->
+  <div class="section">
+    <button id="btn-send" onclick="send()">送信する</button>
+    <div id="status"></div>
   </div>
-
-  <div id="status"></div>
-
-  <!-- コントロール: 初期 -->
-  <div id="ctrl-start">
-    <button class="btn btn-primary" onclick="startCamera()">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-      カメラを起動
-    </button>
-  </div>
-
-  <!-- コントロール: カメラ起動中 -->
-  <div id="ctrl-camera" style="display:none;" class="row">
-    <button class="btn btn-danger" onclick="stopCamera()">キャンセル</button>
-    <button class="btn btn-primary" onclick="shoot()">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="9"/></svg>
-      撮影
-    </button>
-  </div>
-
-  <!-- コントロール: プレビュー確認 -->
-  <div id="ctrl-preview" style="display:none;" class="row">
-    <button class="btn btn-secondary" onclick="retake()">撮り直し</button>
-    <button class="btn btn-secondary" id="btn-crop-mode" onclick="startCropMode()">
-      ✂️ トリミング
-    </button>
-    <button class="btn btn-primary" id="btn-send" onclick="sendToDrive()">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-      送信
-    </button>
-  </div>
-
-  <!-- コントロール: トリミング中 -->
-  <div id="ctrl-crop">
-    <p id="crop-hint">📐 切り抜きたい範囲をドラッグしてください</p>
-    <div class="row">
-      <button class="btn btn-secondary" onclick="cancelCrop()">キャンセル</button>
-      <button class="btn btn-danger"    onclick="resetCrop()">リセット</button>
-      <button class="btn btn-primary"   id="btn-apply-crop" onclick="applyCrop()" disabled>この範囲で切り抜く</button>
-    </div>
-  </div>
-
-</div>
+</main>
 
 <script>
-// =============================================
-// 設定
-// =============================================
-var STORAGE_KEY   = 'gas_upload_url';
+// ===== 設定 =====
+var STORAGE_KEY     = 'gas_upload_url'; // ギャラリーと同じキーで共有
 var DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbz7TfG8faY3joY7vkW8xvgpsTWPOZmiMWGun2CrOtbQQTveSAwSVhluEePm7EvcqMyPmg/exec';
+var MAX_DIM = 1600;     // 長辺の最大px（縮小して送信）
+var JPEG_Q  = 0.9;
+var MAX_RETRY = 3;
 
-// =============================================
-// 状態
-// =============================================
-var stream       = null;
-var capturedBlob = null;
-var capturedFile = null;  // ファイル選択フォールバック用
+var mode = 'shared';
+var imageDataUrl = null;
 
-// =============================================
-// GAS URL の保存・読み込み・トグル
-// =============================================
-(function initUrl() {
+// ===== GAS URL =====
+(function(){
   var saved = localStorage.getItem(STORAGE_KEY) || DEFAULT_GAS_URL;
   document.getElementById('gas-url-input').value = saved;
 })();
-
-document.getElementById('gas-url-input').addEventListener('input', function() {
+document.getElementById('gas-url-input').addEventListener('input', function(){
   localStorage.setItem(STORAGE_KEY, this.value.trim());
 });
-
-function toggleGasSetting() {
-  var panel = document.getElementById('gas-setting');
-  var btn   = document.getElementById('btn-gas-toggle');
-  var isOpen = panel.classList.toggle('open');
-  btn.style.color = isOpen ? 'var(--green)' : '';
-  btn.style.borderColor = isOpen ? 'var(--green)' : '';
-  if (isOpen) document.getElementById('gas-url-input').focus();
-}
-
-function getGasUrl() {
+function getGasUrl(){
   return (document.getElementById('gas-url-input').value || DEFAULT_GAS_URL).trim();
 }
-
-// =============================================
-// ステータス表示
-// =============================================
-function setStatus(msg, type) {
-  var el = document.getElementById('status');
-  el.className = 'show ' + (type || '');
-  var icon = '';
-  if (type === 'success') icon = '<span class="status-icon">✅</span>';
-  else if (type === 'error') icon = '<span class="status-icon">❌</span>';
-  else if (type === 'info')  icon = '<div class="spinner"></div>';
-  el.innerHTML = icon + '<span>' + msg + '</span>';
-}
-function clearStatus() {
-  document.getElementById('status').className = '';
-  document.getElementById('status').innerHTML = '';
+function toggleGasBar(){
+  var bar = document.getElementById('gas-bar');
+  var btn = document.getElementById('btn-gas-toggle');
+  var open = bar.classList.toggle('open');
+  btn.classList.toggle('active', open);
+  if (open) document.getElementById('gas-url-input').focus();
 }
 
-// =============================================
-// パネル切り替え
-// =============================================
-function showCtrl(name) {
-  ['start','camera','preview'].forEach(function(n) {
-    document.getElementById('ctrl-' + n).style.display = n === name ? (n === 'camera' || n === 'preview' ? 'flex' : 'block') : 'none';
+// ===== モード切替 =====
+function setMode(m){
+  mode = m;
+  document.querySelectorAll('#mode-seg button').forEach(function(b){
+    b.classList.toggle('active', b.dataset.mode === m);
   });
-  // プレビュー時のみ名前入力欄を表示
-  var nameArea = document.getElementById('name-area');
-  if (name === 'preview') {
-    nameArea.classList.add('show');
-    document.getElementById('sender-name').focus();
+  updateHint();
+}
+function updateHint(){
+  var name = document.getElementById('name').value;
+  var hint = document.getElementById('dest-hint');
+  if (mode === 'personal'){
+    hint.innerHTML = name
+      ? '送信先：個人フォルダ「<b>' + name + '</b>」'
+      : '送信先：個人フォルダ（氏名を選んでください）';
   } else {
-    nameArea.classList.remove('show');
-    document.getElementById('sender-name').classList.remove('error');
+    hint.innerHTML = '送信先：<b>クラス共有フォルダ</b>'
+      + (name ? '（ファイル名に「' + name + '」を付与）' : '');
   }
 }
+document.getElementById('name').addEventListener('change', function(){
+  this.classList.remove('required-empty');
+  updateHint();
+});
 
-// =============================================
-// カメラ起動
-// =============================================
-function startCamera() {
-  clearStatus();
-
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    showFileFallback('このブラウザはカメラAPIに対応していません。');
-    return;
-  }
-
-  navigator.mediaDevices.getUserMedia({
-    video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
-    audio: false
-  }).then(function(s) {
-    stream = s;
-    var video = document.getElementById('video');
-    video.srcObject = stream;
-    document.getElementById('placeholder').style.display = 'none';
-    video.classList.add('active');
-    showCtrl('camera');
-  }).catch(function(err) {
-    if (err.name === 'NotAllowedError') {
-      showFileFallback('カメラへのアクセスが拒否されました。ファイルを選択してください。');
-    } else {
-      showFileFallback('カメラを起動できませんでした。ファイルを選択してください。');
-    }
-  });
-}
-
-function showFileFallback(msg) {
-  setStatus(msg, 'error');
-  document.getElementById('placeholder').style.display = 'none';
-  var fi = document.getElementById('file-input');
-  fi.setAttribute('capture', 'environment'); // フォールバック時のみcaptureを有効化
-  document.getElementById('file-fallback').style.display = 'flex';
-  fi.addEventListener('change', onFileSelected, { once: true });
-  showCtrl('start');
-}
-
-function onFileSelected(e) {
-  var file = e.target.files[0];
+// ===== 写真選択 → 縮小 =====
+function onFile(ev){
+  var file = ev.target.files && ev.target.files[0];
   if (!file) return;
-  capturedFile = file;
+  setStatus('画像を処理中...', 'info');
   var reader = new FileReader();
-  reader.onload = function(ev) {
+  reader.onload = function(e){
     var img = new Image();
-    img.onload = function() {
-      var canvas = document.getElementById('canvas-preview');
-      canvas.width  = img.naturalWidth;
-      canvas.height = img.naturalHeight;
-      canvas.getContext('2d').drawImage(img, 0, 0);
-      canvas.classList.add('active');
-      document.getElementById('file-fallback').style.display = 'none';
-      showMeta(file.size);
+    img.onload = function(){
+      var scale = Math.min(MAX_DIM / img.width, MAX_DIM / img.height, 1);
+      var w = Math.round(img.width * scale);
+      var h = Math.round(img.height * scale);
+      var cv = document.createElement('canvas');
+      cv.width = w; cv.height = h;
+      cv.getContext('2d').drawImage(img, 0, 0, w, h);
+      imageDataUrl = cv.toDataURL('image/jpeg', JPEG_Q);
+      document.getElementById('preview').src = imageDataUrl;
+      document.getElementById('preview-wrap').classList.add('show');
+      document.getElementById('capture-btn').style.display = 'none';
       clearStatus();
-      showCtrl('preview');
     };
-    img.src = ev.target.result;
+    img.src = e.target.result;
   };
   reader.readAsDataURL(file);
 }
 
-// =============================================
-// 撮影
-// =============================================
-function shoot() {
-  var video  = document.getElementById('video');
-  var canvas = document.getElementById('canvas-preview');
-  canvas.width  = video.videoWidth  || 1280;
-  canvas.height = video.videoHeight || 720;
-  canvas.getContext('2d').drawImage(video, 0, 0);
-
-  canvas.toBlob(function(blob) {
-    capturedBlob = blob;
-    showMeta(blob.size);
-  }, 'image/jpeg', 0.92);
-
-  stopStream();
-  video.classList.remove('active');
-  canvas.classList.add('active');
-  capturedFile = null;
+function resetPhoto(){
+  imageDataUrl = null;
+  document.getElementById('file-input').value = '';
+  document.getElementById('preview-wrap').classList.remove('show');
+  document.getElementById('capture-btn').style.display = 'flex';
   clearStatus();
-  showCtrl('preview');
 }
 
-function stopStream() {
-  if (stream) { stream.getTracks().forEach(function(t){ t.stop(); }); stream = null; }
-}
+// ===== 送信 =====
+function send(){
+  var name = document.getElementById('name').value;
 
-function stopCamera() {
-  stopStream();
-  document.getElementById('video').classList.remove('active');
-  document.getElementById('placeholder').style.display = 'flex';
-  clearStatus();
-  showCtrl('start');
-}
-
-// =============================================
-// 撮り直し
-// =============================================
-function retake() {
-  document.getElementById('canvas-preview').classList.remove('active');
-  document.getElementById('file-fallback').style.display = 'none';
-  document.getElementById('placeholder').style.display = 'flex';
-  document.getElementById('meta').style.display = 'none';
-  capturedBlob = null;
-  capturedFile = null;
-  document.getElementById('sender-name').value = '';
-  clearStatus();
-  showCtrl('start');
-  // ファイル入力をリセット
-  var fi = document.getElementById('file-input');
-  fi.removeAttribute('capture'); // capture属性を除去してgetUserMediaの干渉を防ぐ
-  fi.value = '';
-  fi.addEventListener('change', onFileSelected, { once: true });
-}
-
-// =============================================
-// メタ情報表示
-// =============================================
-function showMeta(size) {
-  var now = new Date();
-  var pad = function(n){ return ('0'+n).slice(-2); };
-  var ts  = now.getFullYear() + '/' + pad(now.getMonth()+1) + '/' + pad(now.getDate())
-           + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
-  var kb  = Math.round(size / 1024);
-  document.getElementById('meta').textContent = '📅 ' + ts + '　📦 ' + kb + ' KB';
-  document.getElementById('meta').style.display = 'block';
-}
-
-// =============================================
-// トリミング機能
-// =============================================
-var cropMode    = false;
-var cropStart   = null;
-var cropRect    = null;   // {x,y,w,h} キャンバス座標系
-
-function startCropMode() {
-  cropMode  = true;
-  cropRect  = null;
-  cropStart = null;
-  var overlay = document.getElementById('crop-overlay');
-  var sel     = document.getElementById('crop-selection');
-  overlay.classList.add('active');
-  sel.style.display = 'none';
-  document.getElementById('camera-area').classList.add('crop-mode');
-  document.getElementById('ctrl-preview').style.display = 'none';
-  document.getElementById('name-area').classList.remove('show');
-  document.getElementById('ctrl-crop').classList.add('show');
-  document.getElementById('btn-apply-crop').disabled = true;
-  document.getElementById('crop-hint').textContent = '📐 切り抜きたい範囲をドラッグしてください';
-}
-
-function cancelCrop() {
-  exitCropMode();
-  showCtrl('preview');
-  document.getElementById('name-area').classList.add('show');
-}
-
-function resetCrop() {
-  cropRect  = null;
-  cropStart = null;
-  document.getElementById('crop-selection').style.display = 'none';
-  document.getElementById('btn-apply-crop').disabled = true;
-  document.getElementById('crop-hint').textContent = '📐 切り抜きたい範囲をドラッグしてください';
-}
-
-function exitCropMode() {
-  cropMode = false;
-  document.getElementById('crop-overlay').classList.remove('active');
-  document.getElementById('crop-selection').style.display = 'none';
-  document.getElementById('camera-area').classList.remove('crop-mode');
-  document.getElementById('ctrl-crop').classList.remove('show');
-}
-
-function getEventPos(e, elem) {
-  var rect = elem.getBoundingClientRect();
-  var cx = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
-  var cy = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
-  // 0〜1に正規化してキャンバス座標に変換
-  var canvas = document.getElementById('canvas-preview');
-  var scaleX = canvas.width  / rect.width;
-  var scaleY = canvas.height / rect.height;
-  return {
-    px: cx, py: cy,             // ピクセル座標（表示上）
-    cx: cx * scaleX,            // キャンバス座標
-    cy: cy * scaleY,
-    scaleX: scaleX, scaleY: scaleY
-  };
-}
-
-function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
-
-// ── オーバーレイのドラッグイベント ──
-(function setupCropEvents() {
-  var overlay = document.getElementById('crop-overlay');
-  var sel     = document.getElementById('crop-selection');
-
-  function onStart(e) {
-    if (!cropMode) return;
-    e.preventDefault();
-    var pos = getEventPos(e, overlay);
-    cropStart = pos;
-    sel.style.display = 'block';
-    sel.style.left = pos.px + 'px';
-    sel.style.top  = pos.py + 'px';
-    sel.style.width  = '0px';
-    sel.style.height = '0px';
-    document.getElementById('btn-apply-crop').disabled = true;
+  if (mode === 'personal' && !name){
+    document.getElementById('name').classList.add('required-empty');
+    setStatus('個人モードでは氏名を選んでください。', 'error');
+    return;
   }
-
-  function onMove(e) {
-    if (!cropMode || !cropStart) return;
-    e.preventDefault();
-    var pos  = getEventPos(e, overlay);
-    var area = document.getElementById('camera-area').getBoundingClientRect();
-    var x0 = Math.min(cropStart.px, pos.px);
-    var y0 = Math.min(cropStart.py, pos.py);
-    var w  = Math.abs(pos.px - cropStart.px);
-    var h  = Math.abs(pos.py - cropStart.py);
-    sel.style.left   = x0 + 'px';
-    sel.style.top    = y0 + 'px';
-    sel.style.width  = w  + 'px';
-    sel.style.height = h  + 'px';
-  }
-
-  function onEnd(e) {
-    if (!cropMode || !cropStart) return;
-    var pos = getEventPos(e.changedTouches ? {clientX: e.changedTouches[0].clientX, clientY: e.changedTouches[0].clientY} : e, overlay);
-    var canvas = document.getElementById('canvas-preview');
-    var cx0 = Math.min(cropStart.cx, pos.cx);
-    var cy0 = Math.min(cropStart.cy, pos.cy);
-    var cw  = Math.abs(pos.cx - cropStart.cx);
-    var ch  = Math.abs(pos.cy - cropStart.cy);
-    if (cw > 5 && ch > 5) {
-      cropRect = {
-        x: clamp(Math.round(cx0), 0, canvas.width),
-        y: clamp(Math.round(cy0), 0, canvas.height),
-        w: clamp(Math.round(cw),  1, canvas.width),
-        h: clamp(Math.round(ch),  1, canvas.height)
-      };
-      document.getElementById('btn-apply-crop').disabled = false;
-      document.getElementById('crop-hint').textContent = '✅ 範囲を確認して「この範囲で切り抜く」を押してください';
-    }
-    cropStart = null;
-  }
-
-  overlay.addEventListener('mousedown',  onStart, {passive:false});
-  overlay.addEventListener('mousemove',  onMove,  {passive:false});
-  overlay.addEventListener('mouseup',    onEnd,   {passive:false});
-  overlay.addEventListener('touchstart', onStart, {passive:false});
-  overlay.addEventListener('touchmove',  onMove,  {passive:false});
-  overlay.addEventListener('touchend',   onEnd,   {passive:false});
-})();
-
-function applyCrop() {
-  if (!cropRect) return;
-  var src  = document.getElementById('canvas-preview');
-  var dst  = document.createElement('canvas');
-  dst.width  = cropRect.w;
-  dst.height = cropRect.h;
-  dst.getContext('2d').drawImage(src, cropRect.x, cropRect.y, cropRect.w, cropRect.h, 0, 0, cropRect.w, cropRect.h);
-
-  // canvas-previewをトリミング後の画像で置き換え
-  var ctx = src.getContext('2d');
-  src.width  = cropRect.w;
-  src.height = cropRect.h;
-  ctx.drawImage(dst, 0, 0);
-
-  dst.toBlob(function(blob) {
-    capturedBlob = blob;
-    showMeta(blob.size);
-  }, 'image/jpeg', 0.92);
-  capturedFile = null;
-
-  exitCropMode();
-  showCtrl('preview');
-  document.getElementById('name-area').classList.add('show');
-  cropRect = null;
-  clearStatus();
-}
-
-// =============================================
-// Drive送信
-// =============================================
-function sendToDrive() {
-  var gasUrl = getGasUrl();
-  if (!gasUrl) {
-    setStatus('GASのWebアプリURLを上の欄に入力してください。', 'error');
+  if (!imageDataUrl){
+    setStatus('先に写真を撮影／選択してください。', 'error');
     return;
   }
 
-  // 名前チェック
-  var nameInput = document.getElementById('sender-name');
-  var senderName = nameInput.value.trim();
-  if (!senderName) {
-    nameInput.classList.add('error');
-    nameInput.focus();
-    setStatus('送信者名を入力してください。', 'error');
-    return;
-  }
-  nameInput.classList.remove('error');
+  var fileName = (name ? name + '_' : '') + 'photo_' + ts() + '.jpg';
+  var body = JSON.stringify({ image: imageDataUrl, fileName: fileName, mode: mode, name: name });
 
-  var sourceBlob = capturedBlob || (capturedFile ? null : null);
-
-  // ファイル選択の場合はcanvasから取得
-  if (!capturedBlob && capturedFile) {
-    var canvas = document.getElementById('canvas-preview');
-    canvas.toBlob(function(blob) { doUpload(gasUrl, blob); }, 'image/jpeg', 0.92);
-    return;
-  }
-  if (!capturedBlob) { setStatus('送信する画像がありません。', 'error'); return; }
-  doUpload(gasUrl, capturedBlob);
-}
-
-function doUpload(gasUrl, blob) {
   var btn = document.getElementById('btn-send');
   btn.disabled = true;
-  setStatus('Google Driveに送信中...', 'info');
+  setStatus('送信中...', 'info');
 
-  var now = new Date();
-  var pad = function(n){ return ('0'+n).slice(-2); };
-  var senderName = document.getElementById('sender-name').value.trim();
-  var safeName   = senderName.replace(/[\\/:*?"<>|]/g, '_'); // ファイル名不可文字を除去
-  var fileName   = safeName + '_photo_'
-    + now.getFullYear() + pad(now.getMonth()+1) + pad(now.getDate())
-    + '_' + pad(now.getHours()) + pad(now.getMinutes()) + pad(now.getSeconds())
-    + '.jpg';
-
-  var reader = new FileReader();
-  reader.onload = function() {
-    var base64 = reader.result; // "data:image/jpeg;base64,..."
-
-    // GASはCORSヘッダーを返さないためno-corsで送信。
-    // レスポンスは読めないが、送信自体は成功する。
-    fetch(gasUrl, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ image: base64, fileName: fileName })
+  postWithRetry(getGasUrl(), body, 1)
+    .then(function(){
+      var where = (mode === 'personal') ? ('「' + name + '」フォルダ') : 'クラス共有フォルダ';
+      setStatus('送信しました（' + where + '）。続けて撮影できます。', 'success');
+      resetPhotoKeepName();
     })
-    .then(function() {
-      setStatus('「' + fileName + '」をDriveに送信しました！', 'success');
+    .catch(function(err){
+      setStatus('送信に失敗しました。電波状況を確認してもう一度お試しください。', 'error');
     })
-    .catch(function(err) {
-      setStatus('通信エラー: ' + err.message + '　GASのURLを確認してください。', 'error');
-    })
-    .finally(function() {
-      btn.disabled = false;
-    });
-  };
-  reader.readAsDataURL(blob);
+    .finally(function(){ btn.disabled = false; });
 }
+
+function postWithRetry(url, body, attempt){
+  return fetch(url, {
+    method:'POST', mode:'no-cors',
+    headers:{'Content-Type':'text/plain'}, body: body
+  }).then(function(){ return true; })
+    .catch(function(err){
+      if (attempt < MAX_RETRY){
+        return new Promise(function(res){ setTimeout(res, 700 * attempt); })
+          .then(function(){ return postWithRetry(url, body, attempt + 1); });
+      }
+      throw err;
+    });
+}
+
+function resetPhotoKeepName(){
+  imageDataUrl = null;
+  document.getElementById('file-input').value = '';
+  document.getElementById('preview-wrap').classList.remove('show');
+  document.getElementById('capture-btn').style.display = 'flex';
+}
+
+// ===== ユーティリティ =====
+function ts(){
+  var d = new Date(), p = function(n){ return ('0'+n).slice(-2); };
+  return d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'_'+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds());
+}
+function setStatus(msg, type){
+  var el = document.getElementById('status');
+  el.className = 'show ' + type;
+  el.innerHTML = (type==='info' ? '<div class="spinner"></div>' : '') + '<span>' + msg + '</span>';
+}
+function clearStatus(){ document.getElementById('status').className = ''; }
+
+updateHint();
 </script>
 </body>
 </html>
