@@ -43,13 +43,15 @@ main{max-width:520px;margin:0 auto;padding:18px 16px 40px;}
 
 /* 氏名入力 */
 input#name-text{width:100%;font-size:16px;padding:13px 12px;border:1px solid var(--gray-border);border-radius:var(--radius);background:#fff;color:#222;}
+textarea#comment-text{width:100%;font-size:15px;padding:12px;border:1px solid var(--gray-border);border-radius:var(--radius);background:#fff;color:#222;font-family:inherit;resize:vertical;line-height:1.5;}
 .required-empty{border-color:#d94f3d !important;background-color:#fdf0ee !important}
 
 /* 撮影 */
-#file-input{display:none}
-.capture-btn{width:100%;border:2px dashed var(--gray-border);border-radius:var(--radius);background:#fff;color:var(--green-dark);cursor:pointer;padding:26px 16px;display:flex;flex-direction:column;align-items:center;gap:10px;font-size:15px;font-weight:600;transition:border-color .15s,background .15s;-webkit-tap-highlight-color:transparent;}
-.capture-btn:hover{border-color:var(--green);background:var(--green-light)}
-.capture-btn svg{width:40px;height:40px;stroke:var(--green)}
+.file-hidden{display:none}
+.capture-row{display:flex;gap:8px;}
+.cap-btn{flex:1;border:1px solid var(--gray-border);border-radius:var(--radius);background:#fff;color:var(--green-dark);cursor:pointer;padding:11px 8px;display:flex;align-items:center;justify-content:center;gap:7px;font-size:14px;font-weight:600;transition:all .15s;-webkit-tap-highlight-color:transparent;}
+.cap-btn:hover{border-color:var(--green);background:var(--green-light)}
+.cap-btn svg{width:18px;height:18px;stroke:var(--green);flex-shrink:0}
 #preview-wrap{display:none;position:relative;border-radius:var(--radius);overflow:hidden;background:#000}
 #preview-wrap.show{display:block}
 #preview{width:100%;max-height:60vh;object-fit:contain;display:block}
@@ -117,24 +119,41 @@ input#name-text{width:100%;font-size:16px;padding:13px 12px;border:1px solid var
   <!-- 氏名 -->
   <div class="section">
     <div class="section-label">氏名</div>
-    <input id="name-text" type="text" placeholder="氏名を入力（例：山田太郎）" autocomplete="off">
+    <input id="name-text" type="text" placeholder="氏名を入力（例：湘南太郎）" autocomplete="off">
   </div>
 
   <!-- 写真 -->
   <div class="section">
     <div class="section-label">写真</div>
-    <input id="file-input" type="file" accept="image/*" capture="environment" onchange="onFile(event)">
-    <button class="capture-btn" id="capture-btn" onclick="document.getElementById('file-input').click()">
-      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-        <circle cx="12" cy="13" r="4"/>
-      </svg>
-      写真を撮影 / 選択
-    </button>
+    <input id="file-camera" class="file-hidden" type="file" accept="image/*" capture="environment" onchange="onFile(event)">
+    <input id="file-pick"   class="file-hidden" type="file" accept="image/*" onchange="onFile(event)">
+    <div class="capture-row" id="capture-row">
+      <button class="cap-btn" id="btn-camera" onclick="document.getElementById('file-camera').click()">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+          <circle cx="12" cy="13" r="4"/>
+        </svg>
+        撮影
+      </button>
+      <button class="cap-btn" id="btn-pick" onclick="document.getElementById('file-pick').click()">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2"/>
+          <circle cx="8.5" cy="8.5" r="1.5"/>
+          <path d="M21 15l-5-5L5 21"/>
+        </svg>
+        選択
+      </button>
+    </div>
     <div id="preview-wrap">
       <img id="preview" alt="プレビュー">
       <button id="btn-retake" onclick="resetPhoto()">↺ 撮り直す</button>
     </div>
+  </div>
+
+  <!-- コメント（個人モードのみ） -->
+  <div class="section" id="comment-section" style="display:none">
+    <div class="section-label">コメント（任意）</div>
+    <textarea id="comment-text" rows="3" placeholder="質問・コメントを入力"></textarea>
   </div>
 
   <!-- 送信 -->
@@ -186,6 +205,7 @@ function normalizeName(s){ return String(s || '').replace(/[\s\u3000]+/g, ''); }
 function setMode(m){
   mode=m;
   document.querySelectorAll('#mode-seg button').forEach(function(b){ b.classList.toggle('active', b.dataset.mode===m); });
+  document.getElementById('comment-section').style.display = (m==='personal') ? 'block' : 'none';
   updateHint();
 }
 function updateHint(){
@@ -220,7 +240,7 @@ function onFile(ev){
       imageDataUrl=cv.toDataURL('image/jpeg', JPEG_Q);
       document.getElementById('preview').src=imageDataUrl;
       document.getElementById('preview-wrap').classList.add('show');
-      document.getElementById('capture-btn').style.display='none';
+      document.getElementById('capture-row').style.display='none';
       clearStatus();
     };
     img.src=e.target.result;
@@ -229,9 +249,10 @@ function onFile(ev){
 }
 function resetPhoto(){
   imageDataUrl=null;
-  document.getElementById('file-input').value='';
+  document.getElementById('file-camera').value='';
+  document.getElementById('file-pick').value='';
   document.getElementById('preview-wrap').classList.remove('show');
-  document.getElementById('capture-btn').style.display='flex';
+  document.getElementById('capture-row').style.display='flex';
   clearStatus();
 }
 
@@ -249,8 +270,9 @@ function send(){
 
   document.getElementById('result').classList.remove('show');
   var classId=(selectedClass==='none')?'':selectedClass;
+  var comment=(mode==='personal') ? document.getElementById('comment-text').value.trim() : '';
   var fileName=(name? name+'_':'')+'photo_'+ts()+'.jpg';
-  var body=JSON.stringify({ image:imageDataUrl, fileName:fileName, mode:mode, name:name, classId:classId });
+  var body=JSON.stringify({ image:imageDataUrl, fileName:fileName, mode:mode, name:name, classId:classId, comment:comment });
 
   var btn=document.getElementById('btn-send'); btn.disabled=true;
   setStatus('送信中...', 'info');
@@ -308,9 +330,11 @@ function openLink(){ if(lastFolderUrl) window.open(lastFolderUrl, '_blank', 'noo
 
 function resetPhotoKeepForm(){
   imageDataUrl=null;
-  document.getElementById('file-input').value='';
+  document.getElementById('file-camera').value='';
+  document.getElementById('file-pick').value='';
+  document.getElementById('comment-text').value='';
   document.getElementById('preview-wrap').classList.remove('show');
-  document.getElementById('capture-btn').style.display='flex';
+  document.getElementById('capture-row').style.display='flex';
 }
 
 // ===== ユーティリティ =====
